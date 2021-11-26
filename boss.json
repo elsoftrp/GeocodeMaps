@@ -1,0 +1,12 @@
+{
+	"name": "GeocodeMaps",
+	"description": "",
+	"version": "1.0.0",
+	"homepage": "",
+	"mainsrc": "src",
+	"projects": [],
+	"dependencies": {
+		"github.com/viniciussanchez/dataset-serialize": "^v2.2.9",
+		"https://github.com/elsoftrp/RESTRequest4Delphi": "3.0.8"
+	}
+}
