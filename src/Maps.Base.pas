@@ -9,6 +9,8 @@ uses
   RESTRequest4D;
 
 type
+  TGCStatus = (gcOK, gcZERO_RESULTS, gcOVER_DAILY_LIMIT, gcOVER_QUERY_LIMIT, gcREQUEST_DENIED, gcINVALID_REQUEST, cgUNKNOWN_ERROR);
+
   IMaps = interface
     ['{FE2BCA4A-2865-4903-9DA7-E0945CEF53BF}']
     function Apikey(const AKey: string): IMaps;
@@ -24,12 +26,15 @@ type
     function GetLongitude(out ALongitude: string): IMaps;
     function GetResultJson(out AResult: string): IMaps;
     function GetAddressFormatted(out AddressFormatted: string): IMaps;
+    function GetStatus(out AStatus: TGCStatus): IMaps; overload;
+    function GetStatus: TGCStatus; overload;
+    function GetMessageError(out AMessageError: string): IMaps; overload;
+    function GetMessageError: string; overload;
   end;
 
   TMaps = Class(TInterfacedObject, IMaps)
    Private
       FApiKey: String;
-      FStatus: string;
       FLat: string;
       FLng: string;
       FAddress: string;
@@ -41,6 +46,9 @@ type
       FZipCode: String;
       FCity: String;
       FState: String;
+      FStatus: TGCStatus;
+      FMessageError: string;
+      procedure SetTypeStatus(aValue: string);
       function Apikey(const AKey: string): IMaps;
       function AddStreet(const AStreet: string): IMaps;
       function AddNumberOfAddress(const ANumberOfAddress: string): IMaps;
@@ -54,6 +62,10 @@ type
       function GetLongitude(out ALongitude: string): IMaps;
       function GetResultJson(out AResult: string): IMaps;
       function GetAddressFormatted(out AddressFormatted: string): IMaps;
+      function GetStatus(out AStatus: TGCStatus): IMaps; overload;
+      function GetStatus: TGCStatus; overload;
+      function GetMessageError(out AMessageError: string): IMaps; overload;
+      function GetMessageError: string; overload;
    Public
       constructor Create(const AKey: string);
       destructor Destroy; override;
@@ -130,18 +142,19 @@ Var
   rAddress: string;
   jsonResult: TJSONArray;
   jsonItem, jsonGeometry, jsonLocation: TJSONObject;
-  rError: string;
+  rStatus: string;
 begin
   Result := Self;
   if FState.IsEmpty then
     raise Exception.Create('Informe o Estado');
   if FCity.IsEmpty then
     raise Exception.Create('Informe a Cidade');
-
   rAddress := 'Brasil,'+FState+FCity+FNeighborhood+FStreet+FNumberOfAddress+FZipCode;
   Delete(rAddress,Length(rAddress),1);
   if rAddress <> FAddress then
   begin
+    FLat := '';
+    FLng := '';
     FAddress := rAddress;
     LResponse := TRequest.New.BaseURL('https://maps.googleapis.com/maps/api/geocode/json?address='+FAddress+'&key='+FApiKey)
       .ContentType('application/json')
@@ -150,21 +163,19 @@ begin
 
     FResult := TJSONObject.ParseJSONValue(TEncoding.UTF8.GetBytes(LResponse.Content), 0) As TJSONObject;
     jsonResult :=  FResult.GetValue<TJSONArray>('results');
-    FStatus := FResult.GetValue<string>('status');
-    if not FStatus.Trim.Equals('OK') then
-    begin
-      rError := FResult.GetValue<string>('error_message');
-      raise Exception.Create('Não foi possível carregar GeoLocalização desse Endereço.'+#13+rError);
-    end;
+    FResult.TryGetValue<string>('status', rStatus);
+    FResult.TryGetValue<string>('error_message', FMessageError);
 
-    if jsonResult.Count > 0 then
+    SetTypeStatus(rStatus);
+
+    if (FStatus = gcOK) and (jsonResult.Count > 0) then
     begin
       jsonItem := jsonResult.Items[0] as TJSONObject;
-      jsonGeometry := jsonItem.GetValue<TJSONObject>('geometry');
-      jsonLocation := jsonGeometry.GetValue<TJSONObject>('location');
-      FAddressFormatted := jsonItem.GetValue<string>('formatted_address');
-      FLat := jsonLocation.GetValue<string>('lat');
-      FLng := jsonLocation.GetValue<string>('lng');
+      jsonItem.TryGetValue<TJSONObject>('geometry', jsonGeometry);
+      jsonGeometry.TryGetValue<TJSONObject>('location', jsonLocation);
+      jsonItem.TryGetValue<string>('formatted_address', FAddressFormatted);
+      jsonLocation.TryGetValue<string>('lat', FLat);
+      jsonLocation.TryGetValue<string>('lng', FLng);
     end;
   end;
   ALatitude := FLat;
@@ -194,15 +205,53 @@ begin
   ALongitude := FLng;
 end;
 
+function TMaps.GetMessageError: string;
+begin
+  Result := FMessageError;
+end;
+
+function TMaps.GetMessageError(out AMessageError: string): IMaps;
+begin
+  AMessageError := FMessageError;
+end;
+
 class function TMaps.New(const AKey: string): IMaps;
 begin
   Result := TMaps.Create(AKey);
+end;
+
+procedure TMaps.SetTypeStatus(aValue: string);
+begin
+  if aValue.Trim.Equals('OK') then
+    FStatus := gcOK;
+  if aValue.Trim.Equals('ZERO_RESULTS') then
+    FStatus := gcZERO_RESULTS;
+  if aValue.Trim.Equals('OVER_DAILY_LIMIT') then
+    FStatus := gcOVER_DAILY_LIMIT;
+  if aValue.Trim.Equals('OVER_QUERY_LIMIT') then
+    FStatus := gcOVER_QUERY_LIMIT;
+  if aValue.Trim.Equals('REQUEST_DENIED') then
+    FStatus := gcREQUEST_DENIED;
+  if aValue.Trim.Equals('INVALID_REQUEST') then
+    FStatus := gcINVALID_REQUEST;
+  if aValue.Trim.Equals('UNKNOWN_ERROR') then
+    FStatus := cgUNKNOWN_ERROR;
 end;
 
 function TMaps.GetResultJson(out AResult: string): IMaps;
 begin
   Result := Self;
   AResult := FResult.ToString;
+end;
+
+function TMaps.GetStatus: TGCStatus;
+begin
+  Result := FStatus;
+end;
+
+function TMaps.GetStatus(out AStatus: TGCStatus): IMaps;
+begin
+  AStatus := FStatus;
 end;
 
 end.

@@ -45,7 +45,7 @@ begin
     .AddStreet(edtRua.Text)
     .AddNumberOfAddress(edtNumero.Text)
     .AddNeighborhood(edtBairro.Text)
-    .AddZipCode(StrToInt(edtCep.Text))
+    .AddZipCode(StrToIntdef(edtCep.Text, 0))
     .AddCity(edtCidade.Text)
     .AddState(edtEstado.Text)
     .GeoCode(rlat, rlng)
@@ -56,6 +56,17 @@ begin
   edtlong.Text := rlng;
   Memo1.Text := memo;
   edtEnderecoFormatado.Text := addressFormatt;
+
+  case mapa.GetStatus of
+    gcOK : ShowMessage('Status: ok');
+    gcZERO_RESULTS: ShowMessage('Status: ZERO RESULTS '+mapa.GetMessageError);
+    gcOVER_DAILY_LIMIT: ShowMessage('Status: VER_DAILY_LIMIT '+mapa.GetMessageError);
+    gcOVER_QUERY_LIMIT: ShowMessage('Status: OVER_QUERY_LIMIT '+mapa.GetMessageError) ;
+    gcREQUEST_DENIED: ShowMessage('Status: REQUEST_DENIED '+mapa.GetMessageError);
+    gcINVALID_REQUEST: ShowMessage('Status: INVALID_REQUEST '+mapa.GetMessageError);
+    cgUNKNOWN_ERROR: ShowMessage('Status: UNKNOWN_ERROR '+mapa.GetMessageError);
+  end;
+
 end;
 
 procedure TfrmPrincipal.FormCreate(Sender: TObject);
